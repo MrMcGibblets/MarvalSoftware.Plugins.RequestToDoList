@@ -1,0 +1,255 @@
+<script src="Template.js"></script>
+
+<template id="list">
+    <style>
+        .marval-software-plugins-request-to-do-list {
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 26px;
+            bottom: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .marval-software-plugins-request-to-do-list > input {
+            box-sizing: border-box;
+            flex-shrink: 0;
+            padding: 10px;
+            width: 100%;
+            border: 0;
+            border-bottom: 1px solid #000;
+            outline: none;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul {
+            flex: 1;
+            overflow: auto;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li:nth-child(even) {
+            background: #E8F1FF;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li > * + * {
+            margin-left: 10px;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li > input {
+            flex-shrink: 0;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li > span {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li.isComplete > span {
+            text-decoration: line-through;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li > a {
+            display: block;
+            flex-shrink: 0;
+            visibility: hidden;
+            color: #F00;
+            text-decoration: none;
+        }
+
+        .marval-software-plugins-request-to-do-list > ul > li:hover > a {
+            visibility: visible;
+        }
+    </style>
+
+    <div class="marval-software-plugins-request-to-do-list">
+        <input type="text" placeholder="What needs doing?" />
+        <ul></ul>
+    </div>
+</template>
+
+<template id="toDo">
+    <li>
+        <input type="checkbox" />
+        <span></span>
+        <a href="javascript:void(0);">Delete</a>
+    </li>
+</template>
+
+<script>
+    (function () {
+        
+        var MarvalSoftware = window.top.MarvalSoftware;
+
+        MarvalSoftware.Plugins.define("marval-software-plugins-request-to-do-list",
+        {
+            _attributeEntererElement: null,
+            _element: null,
+            _textElement: null,
+            _listElement: null,
+
+            init: function () {
+                this._getRequestAttributeTypeId(function (requestAttributeTypeId) {
+                    if (requestAttributeTypeId > 0) {
+                        this._attributeEntererElement = window.top.document.querySelector("[id$=AttributeEnterer_" + requestAttributeTypeId + "_entry_" + requestAttributeTypeId + "]");
+                        if (this._attributeEntererElement) {
+                            if (this._attributeEntererElement.tagName == "TEXTAREA") {
+                                this._toDos = JSON.parse(this._attributeEntererElement.value || "[]");
+                                this._attributeEntererElement.parentNode.style.display = "none";
+                                this._setUpQuickMenu();
+                            } else {
+                                this._showErrorMessage("The request attribute type must be a multiline text box.");
+                            }
+                        } else {
+                            this._showErrorMessage("The request attribute type could not be found. Please make you have set the correct RequestAttributeTypeId global setting and the request attribute type exists on this request type.");
+                        }
+                    } else {
+                        this._showErrorMessage("You must specify the RequestAttributeTypeId global setting.");
+                    }
+                }.bind(this));
+            },
+            
+            _getRequestAttributeTypeId: function (callback) {
+                var xmlHttpRequest = new XMLHttpRequest();
+                xmlHttpRequest.addEventListener("load", function (e) {
+                    callback(xmlHttpRequest.responseText);
+                }.bind(this));
+                xmlHttpRequest.open("GET", this.dataset.pluginpath + "/Handler.ashx", true);
+                xmlHttpRequest.send();
+            },
+
+            _setUpQuickMenu: function () {
+                var styleElement = window.top.document.createElement("style");
+                window.top.document.body.appendChild(styleElement);
+                styleElement.sheet.insertRule(".marval-software-plugins-request-to-do-list-quick-menu-item { background-image: url(" + this.dataset.pluginpath + "icon_32.png); }", 0);
+
+                var quickMenuId = window.top.document.querySelector(".quickMenu").id;
+                var quickMenu = MarvalSoftware.UI.Controls.ScriptManager.getInstance().getControl(quickMenuId);
+                quickMenu.addMenuItem({
+                    Identifier: "marval-software-plugins-request-to-do-list",
+                    Label: "To-Dos",
+                    HRef: "javascript:void(0);",
+                    CssClass: "marval-software-plugins-request-to-do-list-quick-menu-item"
+                });
+                quickMenu.onMenuItemClicked.subscribe(function (sender, e) {
+                    if (e.menuItem.getIdentifier() == "marval-software-plugins-request-to-do-list") {
+                        this._popup();
+                    }
+                }, this);
+            },
+
+            _showErrorMessage: function (errorMessage) {
+                MarvalSoftware.UI.MessageBox.show(
+                    "To-Dos Configuration Error",
+                    errorMessage,
+                    MarvalSoftware.UI.MessageBox.Types.ERROR,
+                    null,
+                    null,
+                    400
+                );
+            },
+
+            _popup: function () {
+                if (!this._pluginWindow) {
+                    this._pluginWindow = new MarvalSoftware.UI.Window({
+                        title: "To-Dos",
+                        height: 369,
+                        width: 400,
+                        minHeight: 233,
+                        minWidth: 400,
+                        isResizable: true,
+                        isMaximizable: true,
+                        bodyElement: this
+                    });
+                    this._renderElement();
+                    this._renderToDos();
+                }
+                if (!this._pluginWindow.isVisible()) {
+                    this._pluginWindow.centerToViewport();
+                }
+                this._pluginWindow.show();
+                this._textElement.focus();
+            },
+
+            _renderElement: function () {
+                var listTemplate = document.querySelector("#list").content;
+                this._element = window.top.document.importNode(listTemplate, true);
+                this._textElement = this._element.querySelector("input");
+                this._textElement.addEventListener("keydown", this._textElement_keydown.bind(this));
+                this._listElement = this._element.querySelector("ul");
+                this._listElement.addEventListener("click", this._listElement_click.bind(this));
+                this.appendChild(this._element);
+            },
+
+            _renderToDos: function () {
+                this._toDos.forEach(this._renderToDo.bind(this));
+            },
+
+            _renderToDo: function (toDo) {
+                var toDoTemplate = document.querySelector("#toDo").content;
+                var toDoElement = window.top.document.importNode(toDoTemplate, true);
+                if (toDo.isComplete) {
+                    toDoElement.querySelector("li").classList.add("isComplete");
+                }
+                toDoElement.querySelector("input").checked = toDo.isComplete;
+                toDoElement.querySelector("span").textContent = toDo.text;
+                this._listElement.appendChild(toDoElement);
+            },
+
+            _createNewToDo: function (text) {
+                var toDo = {
+                    text: text,
+                    isComplete: false
+                };
+                this._renderToDo(toDo);
+                this._toDos.push(toDo);
+                this._saveToDos();
+            },
+
+            _completeToDo: function (index) {
+                this._listElement.children[index].classList.toggle("isComplete");
+                this._toDos[index].isComplete = !this._toDos[index].isComplete;
+                this._saveToDos();
+            },
+
+            _deleteToDo: function (index) {
+                this._listElement.removeChild(this._listElement.children[index]);
+                this._toDos.splice(index, 1);
+                this._saveToDos();
+            },
+
+            _saveToDos: function () {
+                this._attributeEntererElement.value = this._toDos.length > 0 ? JSON.stringify(this._toDos) : "";
+            },
+
+            _getToDoElementIndex: function (toDoElement) {
+                return Array.prototype.indexOf.call(toDoElement.parentNode.children, toDoElement);
+            },
+
+            _textElement_keydown: function (e) {
+                if (e.keyCode == 13 && this._textElement.value !== "") {
+                    this._createNewToDo(this._textElement.value);
+                    this._textElement.value = "";
+                    e.preventDefault();
+                }
+            },
+
+            _listElement_click: function (e) {
+                if (e.target.tagName == "INPUT") {
+                    this._completeToDo(this._getToDoElementIndex(e.target.parentNode));
+                } else if (e.target.tagName == "A") {
+                    this._deleteToDo(this._getToDoElementIndex(e.target.parentNode));
+                }
+            }
+        });
+
+    })();
+</script>

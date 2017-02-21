@@ -1,0 +1,20 @@
+﻿{
+    "Name": "MarvalSoftware.Plugins.RequestToDoList",
+    "Organisation": "MarvalSoftware",
+    "DisplayName": "Request To-Do List",
+    "Icon": "icon_16.png",
+    "Version": "1.0.0",
+    "SupportedVersions": [
+        "14.4.0",
+        "14.3.0",
+        "0.0.0"
+    ],
+    "Pages": [
+        "Request.aspx"
+    ],
+    "HtmlImportFile": "index.html",
+    "TagName": "marval-software-plugins-request-to-do-list",
+    "GlobalSettings": [
+        "RequestAttributeTypeId"
+    ]
+}
